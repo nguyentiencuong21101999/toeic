@@ -1,4 +1,5 @@
 import cors from 'cors'
+import paypal from 'paypal-rest-sdk'
 import express, { NextFunction, Request, Response } from 'express'
 import { IncomingHttpHeaders } from 'http'
 import humps from 'humps'
@@ -25,11 +26,84 @@ app.use((req, res, next) => {
     }
     next()
 })
-
-app.get('/healthcheck', async (req, res) => {
-    res.send({ status: 'healthy' })
+paypal.configure({
+    mode: 'sandbox', //sandbox or live
+    client_id:
+        'AYB1Kr9dLp9xlOhQpythu7K0xxJkfD35ewgUcLqMmgmgSS9qlTv2TxMPuIjUcx_9xOeRFr3Owwz2JG5H',
+    client_secret:
+        'EH5SIeAKRh5Nq4VOJK6IxeulHLjK5SwYCoMbszZ9PhZo2QNI3jLsFqluhq2GRUpv2vdlEKooZGmJ8NLL',
 })
 
+app.post('/payment', async (req, res) => {
+    const create_payment_json = {
+        intent: 'sale',
+        payer: {
+            payment_method: 'paypal',
+        },
+        redirect_urls: {
+            return_url: 'http://localhost:4000/success',
+            cancel_url: 'http://youtube.com',
+        },
+        transactions: [
+            {
+                item_list: {
+                    items: [
+                        {
+                            name: 'book',
+                            sku: 'book',
+                            price: '1.00',
+                            currency: 'USD',
+                            quantity: 1,
+                        },
+                    ],
+                },
+                amount: {
+                    currency: 'USD',
+                    total: '1.00',
+                },
+                description: 'payment test.',
+            },
+        ],
+    }
+    paypal.payment.create(create_payment_json, function (error, payment) {
+        if (error) {
+            throw error
+        } else {
+            console.log('Create Payment Response')
+            res.json(payment)
+        }
+    })
+})
+
+app.get('/success', (req, res) => {
+    console.log(req.query)
+    const payerId = req.query.PayerID
+    const paymentId = req.query.paymentId
+
+    const execute_payment_json = {
+        payer_id: payerId,
+        transactions: [
+            {
+                amount: {
+                    currency: 'USD',
+                    total: '1.00',
+                },
+            },
+        ],
+    }
+
+    paypal.payment.execute(
+        paymentId,
+        execute_payment_json,
+        function (error, payment) {
+            if (error) {
+                res.send(error)
+            } else {
+                res.json(payment)
+            }
+        }
+    )
+})
 app.use('/users', userRouter)
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -39,7 +113,8 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 })
 
 app.listen(port, async () => {
+    await database.authenticate()
     await redisService.connect()
-    await database.sync({ alter: true })
+    // await database.sync({ alter: true })
     return logger.info(`Server is listening at port ${port}`)
 })

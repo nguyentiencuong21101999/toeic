@@ -47,6 +47,7 @@
         "joi": "^17.6.0",
         "jsonwebtoken": "^8.5.1",
         "mysql2": "^2.3.3",
+        "paypal-rest-sdk": "^1.8.1",
         "redis": "^4.0.4",
         "reflect-metadata": "^0.1.13",
         "sequelize": "^6.17.0",
